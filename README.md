@@ -7,6 +7,10 @@
 
 MCP server for Google NotebookLM. It drives a real Chrome via Patchright (stealth + persistent fingerprint) so an agent can chat against a notebook, ingest sources, generate audio overviews, and read DOM-level citations. Two transports are supported: `stdio` (default) and Streamable-HTTP. v2.0.0 is the current line; v1 is no longer supported.
 
+> ### 🔧 This is a patched fork
+> The upstream `add_source` is broken on v2.0.0 (`Could not open the "Add source" dialog`, upstream [#46](https://github.com/PleasePrompto/notebooklm-mcp/issues/46)). **This fork fixes it**, adds a one-command installer for **Claude Code**, **Codex**, and **Gemini Antigravity**, and ships a manual bypass script. Start here → [Plug-and-play install (this fork)](#plug-and-play-install-this-fork). Bug analysis → [docs/NOTEBOOKLM-MCP-FIX.md](./docs/NOTEBOOKLM-MCP-FIX.md).
+
+- [**Plug-and-play install (this fork)**](#plug-and-play-install-this-fork) — Claude Code, Codex, Gemini Antigravity
 - [Requirements](#requirements--platform-support)
 - [Install](#install)
 - [Connect](#connect-to-claude-code) — Claude Code, Cursor, Codex, generic MCP
@@ -20,6 +24,96 @@ MCP server for Google NotebookLM. It drives a real Chrome via Patchright (stealt
 - [Configuration reference](#configuration-reference)
 - [Development](#development)
 - [Migration from v1](#changelog--migration)
+
+---
+
+## Plug-and-play install (this fork)
+
+This fork fixes `add_source` (see [docs/NOTEBOOKLM-MCP-FIX.md](./docs/NOTEBOOKLM-MCP-FIX.md)). Pick one of the two options below. Requirements: **Node ≥ 18** (plus **git** for the `npx`-from-fork form).
+
+### Option 1 — one-command installer (recommended)
+
+Clone the fork and run [`install.mjs`](./install.mjs). It writes the MCP config for every client it detects, backing up any existing file to `*.bak`:
+
+```bash
+git clone https://github.com/leofioresein/notebooklm-mcp
+cd notebooklm-mcp
+npm install          # installs deps + builds dist/ (via the prepare script)
+node install.mjs     # configures every detected client
+```
+
+Target specific clients (forces them, creating config dirs/files as needed):
+
+```bash
+node install.mjs claude        # Claude Code only
+node install.mjs codex         # Codex CLI only
+node install.mjs antigravity   # Gemini Antigravity only
+node install.mjs claude codex  # a subset
+```
+
+By default the installer wires clients to the **local build** (this clone's `dist/index.js`) — fully pinned, no re-download, no `npx` build step on every launch. To point at the GitHub fork via `npx` instead (so the server itself needs no clone), add `--remote`:
+
+```bash
+node install.mjs --remote      # uses: npx -y github:leofioresein/notebooklm-mcp#main
+```
+
+Files written:
+
+| Client | Config file |
+|---|---|
+| Claude Code | `~/.claude.json` |
+| Codex CLI | `~/.codex/config.toml` |
+| Gemini Antigravity | `~/.gemini/antigravity/mcp_config.json` |
+
+### Option 2 — manual config
+
+The `prepare` script auto-builds, so `npx` straight from the git fork compiles on first run.
+
+**Claude Code** — CLI:
+
+```bash
+claude mcp add notebooklm -- npx -y github:leofioresein/notebooklm-mcp#main
+```
+
+or edit `~/.claude.json`:
+
+```json
+{
+  "mcpServers": {
+    "notebooklm": {
+      "command": "npx",
+      "args": ["-y", "github:leofioresein/notebooklm-mcp#main"],
+      "env": {}
+    }
+  }
+}
+```
+
+**Codex CLI** — `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.notebooklm]
+command = "npx"
+args = ["-y", "github:leofioresein/notebooklm-mcp#main"]
+```
+
+**Gemini Antigravity** — no CLI; edit `~/.gemini/antigravity/mcp_config.json` (in the app: ⋯ menu → *MCP Servers* → *Manage MCP Servers* → *View raw config*):
+
+```json
+{
+  "mcpServers": {
+    "notebooklm": {
+      "command": "npx",
+      "args": ["-y", "github:leofioresein/notebooklm-mcp#main"],
+      "env": {}
+    }
+  }
+}
+```
+
+> **After installing:** restart the client so it loads the new MCP config, then run the `setup_auth` tool once to log into Google (cookies persist locally per machine). Verify with an `add_source` of any URL — expect `success: true`.
+>
+> Prefer a local build over `npx`? Replace `command`/`args` with `"command": "node"`, `"args": ["/absolute/path/to/notebooklm-mcp/dist/index.js"]`.
 
 ---
 

@@ -191,12 +191,22 @@ async function openAddSourceOverlay(page: Page): Promise<void> {
     return;
   }
 
+  // LOAD-RACE FIX (issue #46): init()/waitForNotebookLMReady only waits for the
+  // chat input (textarea.query-box-input), which mounts during the zero-state
+  // "Loading Notebook…" screen — before the source sidebar hydrates. So the
+  // `.add-source-button` may not exist yet. Wait for it to be visible first.
+  await page
+    .locator(joinAlt(Selectors.sources.addButton))
+    .first()
+    .waitFor({ state: "visible", timeout: 45_000 })
+    .catch(() => undefined);
+
   // Try the sidebar button first — fastest path on a populated notebook.
   try {
     await page
       .locator(joinAlt(Selectors.sources.addButton))
       .first()
-      .click({ timeout: 5_000 });
+      .click({ timeout: 15_000 });
     await page
       .locator(Selectors.sources.overlayPane)
       .first()
